@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, flash, url_for
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -59,7 +59,8 @@ def register():
         password = request.form["password"]
 
         if not username or not password:
-            return "Username and password are required."
+            flash("Username and password are required.", "warning")
+            return redirect(url_for('register'))
 
         hashed_password = generate_password_hash(password)
 
@@ -72,10 +73,10 @@ def register():
             conn.commit()
             conn.close()
 
-            return redirect("/login")
+            return redirect(url_for('login'))
 
         except sqlite3.IntegrityError:
-            return "Username already exists."
+            flash("Username already exists.", "danger")
 
     return render_template("register.html")
 
@@ -83,8 +84,8 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form.get("username")
+        password = request.form.get("password")
 
         conn = get_db()
         user = conn.execute(
@@ -96,9 +97,9 @@ def login():
         if user and check_password_hash(user["password"], password):
             session["user_id"] = user["id"]
             session["username"] = user["username"]
-            return redirect("/")
+            return redirect(url_for('home'))
 
-        return "Invalid username or password."
+        flash("Invalid username or password.", "danger")
 
     return render_template("login.html")
 
@@ -106,16 +107,16 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect("/login")
+    return redirect(url_for('login'))
 
 
 @app.route("/add", methods=["POST"])
 def add():
     if "user_id" not in session:
-        return redirect("/login")
+        return redirect(url_for('login'))
 
-    title = request.form["title"]
-    description = request.form["description"]
+    title = request.form.get("title")
+    description = request.form.get("description")
 
     conn = get_db()
     conn.execute(
@@ -125,17 +126,17 @@ def add():
     conn.commit()
     conn.close()
 
-    return redirect("/")
+    return redirect(url_for('home'))
 
 
 @app.route("/update/<int:id>", methods=["POST"])
 def update(id):
     if "user_id" not in session:
-        return redirect("/login")
+        return redirect(url_for('login'))
 
-    title = request.form["title"]
-    description = request.form["description"]
-    status = request.form["status"]
+    title = request.form.get("title")
+    description = request.form.get("description")
+    status = request.form.get("status")
 
     conn = get_db()
     conn.execute(
@@ -145,13 +146,14 @@ def update(id):
     conn.commit()
     conn.close()
 
-    return redirect("/")
+    return redirect(url_for('home'))
 
 
 @app.route("/delete/<int:id>", methods=["POST"])
 def delete(id):
     if "user_id" not in session:
-        return redirect("/login")
+        flash("You must login first", "warning")
+        return redirect(url_for('login'))
 
     conn = get_db()
     conn.execute(
@@ -161,7 +163,7 @@ def delete(id):
     conn.commit()
     conn.close()
 
-    return redirect("/")
+    return redirect(url_for('home'))
 
 
 if __name__ == "__main__":
